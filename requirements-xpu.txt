@@ -1,0 +1,22 @@
+# Intel XPU package index. Keep this file separate from requirements.txt because
+# CUDA and XPU PyTorch wheels are mutually exclusive.
+--extra-index-url https://download.pytorch.org/whl/xpu
+
+torch==2.13.0+xpu
+torchvision==0.28.0+xpu
+# The latest available XPU torchaudio wheel is 2.11.0+xpu. LingBot-World does
+# not use torchaudio, but it is retained here for parity with requirements.txt.
+torchaudio==2.11.0+xpu
+
+opencv-python>=4.9.0.80
+diffusers>=0.31.0
+transformers>=4.49.0,<=4.51.3
+tokenizers>=0.20.3
+accelerate>=1.1.1
+tqdm
+imageio[ffmpeg]
+easydict
+ftfy
+imageio-ffmpeg
+numpy>=1.23.5,<2
+scipy[build-system]

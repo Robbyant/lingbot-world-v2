@@ -90,6 +90,46 @@ Install [`flash_attn`](https://github.com/Dao-AILab/flash-attention):
 ```sh
 pip install flash-attn --no-build-isolation
 ```
+
+### Intel XPU Support
+
+Single-device `causal_fast` inference is supported on Intel GPUs through
+PyTorch XPU. CUDA is preferred when it is available; CUDA-free hosts with an
+Intel XPU select XPU automatically. CPU-only execution is not the supported
+14B inference path. The XPU attention path uses native PyTorch SDPA and does
+not require the CUDA-only `flash_attn` package.
+
+#### Requirements
+
+- Python 3.10 or newer
+- PyTorch `2.13.0+xpu`
+- Matching `torchvision` XPU build
+- `torchaudio` `2.11.0+xpu` (included for dependency parity; not used by the model)
+- Current Intel GPU driver and oneAPI/Level Zero runtime
+
+Keep CUDA and XPU installations in separate environments because their
+PyTorch wheels are mutually exclusive.
+
+#### XPU Installation
+
+Create a dedicated environment and install all XPU dependencies from the
+dedicated requirements file:
+
+```sh
+python -m pip install -r requirements-xpu.txt
+```
+
+Do not install `requirements.txt` or `flash_attn` in this environment.
+`requirements-xpu.txt` pins the tested XPU builds and includes the XPU package
+index. Verify backend selection before loading the model:
+
+```sh
+python -c "import torch; print(torch.__version__); print('xpu:', torch.xpu.is_available()); print('cuda:', torch.cuda.is_available())"
+```
+
+Expected output includes an `+xpu` PyTorch version, `xpu: True`, and
+`cuda: False`.
+
 ### Model Download
 
 | Model | Model Type | Model Size | Download Links |
@@ -134,6 +174,25 @@ We provide `generate.py` for causal inference with KV caching, which processes v
   ``` sh
   torchrun --nproc_per_node=4 generate.py --task i2v-1.3B --size 480*832 --ckpt_dir lingbot-world-v2-1.3b-causal-fast --assets_dir lingbot-world-v2-14b-causal-fast --image examples/03/image.jpg --action_path examples/03 --dit_fsdp --t5_fsdp --ulysses_size 4 --frame_num 361 --local_attn_size 18 --sink_size 6 --prompt "A serene lakeside scene with a lone tree standing in calm water, surrounded by distant snow-capped mountains under a bright blue sky with drifting white clouds — gentle ripples reflect the tree and sky, creating a tranquil, meditative atmosphere."
   ```
+
+- `causal_fast` — 480P, single Intel XPU:
+  ```sh
+  python generate.py --task i2v-A14B --size 480*832 \
+    --ckpt_dir /path/to/lingbot-world-v2-14b-causal-fast \
+    --image examples/03/image.jpg --action_path examples/03 \
+    --frame_num 81 --local_attn_size 6 --sink_size 6 \
+    --t5_cpu --offload_model False \
+    --save_dir output \
+    --prompt "A serene lakeside scene with a lone tree standing in calm water."
+  ```
+
+For the XPU configuration, `--local_attn_size 6` limits KV-cache memory and
+`--offload_model False` avoids copying the full BF16 transformer back to
+unified CPU/XPU memory during teardown. The verified integrated-GPU command
+uses `--t5_cpu`: T5 encodes once on CPU and only its embeddings move to XPU.
+The DiT, VAE, and denoising path run on XPU; T5 CPU placement is an explicit
+memory-saving option, not an implicit device fallback. Omitting `--t5_cpu`
+moves T5 to XPU but requires approximately 11 GiB additional memory.
 
 - `causal_pretrain` — 480P, multi-GPU:
   ``` sh

@@ -14,6 +14,7 @@ import torch.distributed as dist
 from PIL import Image
 
 import wan
+from wan.amp_compat import get_accelerator, synchronize
 from wan.configs import MAX_AREA_CONFIGS, SIZE_CONFIGS, SUPPORTED_SIZES, WAN_CONFIGS
 from wan.distributed.util import init_distributed_group
 from wan.utils.utils import save_video, str2bool
@@ -246,6 +247,7 @@ def generate(args):
     local_rank = int(os.getenv("LOCAL_RANK", 0))
     device = local_rank
     _init_logging(rank)
+    accelerator = get_accelerator()
 
     if args.offload_model is None:
         args.offload_model = False if world_size > 1 else True
@@ -254,6 +256,10 @@ def generate(args):
     cfg = WAN_CONFIGS[args.task]
 
     if world_size > 1:
+        if accelerator != 'cuda':
+            raise RuntimeError(
+                'Distributed inference currently requires CUDA/NCCL; '
+                'XPU supports single-device inference only.')
         torch.cuda.set_device(local_rank)
         dist.init_process_group(
             backend="nccl",
@@ -309,7 +315,7 @@ def generate(args):
 
     del video
 
-    torch.cuda.synchronize()
+    synchronize(accelerator)
     if dist.is_initialized():
         dist.barrier()
         dist.destroy_process_group()
