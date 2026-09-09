@@ -12,8 +12,8 @@ Robbyant Team
 
 [![Page](https://img.shields.io/badge/%F0%9F%8C%90%20Project%20Page-Demo-00bfff)](https://technology.robbyant.com/lingbot-world-v2)
 [![Tech Report](https://img.shields.io/static/v1?label=Paper&message=PDF&color=red&logo=arxiv)](https://arxiv.org/abs/2607.07534)
-[![Model](https://img.shields.io/static/v1?label=%F0%9F%A4%97%20Model&message=HuggingFace&color=yellow)](https://huggingface.co/robbyant/lingbot-world-v2-14b-causal-fast)
-[![Model](https://img.shields.io/static/v1?label=%F0%9F%A4%96%20Model&message=ModelScope&color=purple)](https://modelscope.cn/models/Robbyant/lingbot-world-v2-14b-causal-fast)
+[![Model](https://img.shields.io/static/v1?label=%F0%9F%A4%97%20Model&message=HuggingFace&color=yellow)](https://huggingface.co/collections/robbyant/lingbot-world-v2)
+[![Model](https://img.shields.io/static/v1?label=%F0%9F%A4%96%20Model&message=ModelScope&color=purple)](https://modelscope.cn/collections/Robbyant/LingBot-World-V2)
 [![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-green)](LICENSE.txt)
 
 
@@ -56,7 +56,7 @@ The real-time version of LingBot-World-Infinity is available on two platforms. W
 - [x] Release the causal-fast inference code and model of the 14B model
 - [ ] Release the causal-pretrained model of the 14B model
 - [ ] Release the bidirectional model of the 14B model
-- [ ] Release the causal-fast and causal-pretrained models of the 1.3B model
+- [ ] Release the causal-fast model of the 1.3B model
 
 ## ⚙️ Quick Start
 This codebase is built upon [Wan2.2](https://github.com/Wan-Video/Wan2.2). Please refer to their documentation for installation instructions.
@@ -80,7 +80,10 @@ pip install flash-attn --no-build-isolation
 | Model | Model Type | Model Size | Download Links |
 | :---  | :--- | :--- | :--- |
 | **lingbot-world-v2-14b-causal-fast** | causal-fast | 14B | 🤗 [HuggingFace](https://huggingface.co/robbyant/lingbot-world-v2-14b-causal-fast) 🤖 [ModelScope](https://www.modelscope.cn/models/Robbyant/lingbot-world-v2-14b-causal-fast) |
-| **lingbot-world-v2-14b-causal-pretrain** | causal-pretrain | 14B | TODO |
+| **lingbot-world-v2-14b-causal-pretrain** | causal-pretrain | 14B | 🤗 [HuggingFace](https://huggingface.co/robbyant/lingbot-world-v2-14b-causal-pretrain) |
+| **lingbot-world-v2-14b-bid** | bidirectional | 14B | 🤗 [HuggingFace](https://huggingface.co/robbyant/lingbot-world-v2-14b-bid) |
+| **lingbot-world-v2-1.3b-causal-fast** | causal-fast | 1.3B | 🤗 [HuggingFace](https://huggingface.co/robbyant/lingbot-world-v2-1.3b-causal-fast) |
+
 
 Download models using huggingface-cli:
 ```sh
