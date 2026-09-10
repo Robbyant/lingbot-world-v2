@@ -19,13 +19,16 @@ from wan.distributed.util import init_distributed_group
 from wan.utils.utils import save_video, str2bool
 
 
+_I2V_EXAMPLE = {
+    "prompt":
+        "A sweeping cinematic journey along the Great Wall of China, winding through golden autumn hills under a brilliant blue sky — stone pathways stretch into the distance, watchtowers stand sentinel, and vibrant foliage blankets the mountainsides as the camera glides smoothly forward, capturing the grandeur and timeless majesty of this ancient wonder.",
+    "image":
+        "examples/04/image.jpg",
+}
+
 EXAMPLE_PROMPT = {
-    "i2v-A14B": {
-        "prompt":
-            "A sweeping cinematic journey along the Great Wall of China, winding through golden autumn hills under a brilliant blue sky — stone pathways stretch into the distance, watchtowers stand sentinel, and vibrant foliage blankets the mountainsides as the camera glides smoothly forward, capturing the grandeur and timeless majesty of this ancient wonder.",
-        "image":
-            "examples/04/image.jpg",
-    },
+    "i2v-A14B": _I2V_EXAMPLE,
+    "i2v-1.3B": _I2V_EXAMPLE,
 }
 
 
@@ -40,7 +43,7 @@ def _validate_args(args):
     if args.image is None and "image" in EXAMPLE_PROMPT[args.task]:
         args.image = EXAMPLE_PROMPT[args.task]["image"]
 
-    if args.task == "i2v-A14B":
+    if args.task.startswith("i2v"):
         assert args.image is not None, "Please specify the image path for i2v."
 
     cfg = WAN_CONFIGS[args.task]
@@ -99,6 +102,12 @@ def _parse_args():
         type=str,
         default=None,
         help="The path to the checkpoint directory.")
+    parser.add_argument(
+        "--assets_dir",
+        type=str,
+        default=None,
+        help="Optional directory that holds shared T5 / VAE / tokenizer assets "
+             "(used when the DiT checkpoint folder does not include them).")
     parser.add_argument(
         "--offload_model",
         type=str2bool,
@@ -215,6 +224,7 @@ def run_causal(args, cfg, img, device, rank, mode="causal_fast"):
         local_attn_size=args.local_attn_size,
         sink_size=args.sink_size,
         infer_mode=mode,
+        assets_dir=args.assets_dir,
     )
     logging.info("Generating video ...")
     return wan_i2v.generate(

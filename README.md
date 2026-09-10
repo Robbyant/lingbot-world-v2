@@ -104,12 +104,16 @@ Download models using huggingface-cli:
 ```sh
 pip install "huggingface_hub[cli]"
 huggingface-cli download robbyant/lingbot-world-v2-14b-causal-fast --local-dir ./lingbot-world-v2-14b-causal-fast
+huggingface-cli download robbyant/lingbot-world-v2-1.3b-causal-fast --local-dir ./lingbot-world-v2-1.3b-causal-fast/transformers
 ```
 Download models using modelscope-cli:
  ```sh
 pip install modelscope
 modelscope download robbyant/lingbot-world-v2-14b-causal-fast --local_dir ./lingbot-world-v2-14b-causal-fast
 ```
+
+The 1.3B Hugging Face package currently contains the DiT weights only. T5, VAE, and the tokenizer are shared with the 14B release — pass them with `--assets_dir` (or the third argument of `run_fast.sh`):
+
 
 ### Inference
 
@@ -121,20 +125,26 @@ We provide `generate.py` for causal inference with KV caching, which processes v
 | `causal_fast` (default) | Distilled few-step model (`LingBot-World-Fast`) | 4 steps per chunk, no CFG |
 | `causal_pretrain` | Pretrained causal model | 40 steps per chunk with CFG | -->
 
-- `causal_fast` — 480P, multi-GPU:
+- `causal_fast` 14B — 480P, 8 GPUs (`ulysses_size` must divide 40 heads):
   ``` sh
   torchrun --nproc_per_node=8 generate.py --task i2v-A14B --size 480*832 --ckpt_dir lingbot-world-v2-14b-causal-fast --image examples/03/image.jpg --action_path examples/03 --dit_fsdp --t5_fsdp --ulysses_size 8 --frame_num 361 --local_attn_size 18 --sink_size 6 --prompt "A serene lakeside scene with a lone tree standing in calm water, surrounded by distant snow-capped mountains under a bright blue sky with drifting white clouds — gentle ripples reflect the tree and sky, creating a tranquil, meditative atmosphere."
   ```
 
-<!-- - `causal_pretrain` — 480P, multi-GPU:
+- `causal_fast` 1.3B — 480P, 4 GPUs (`ulysses_size` must divide 12 heads; 4 matches the 1.3B causal-ODE CP=4 setting). Reuse T5/VAE from the 14B checkpoint if the 1.3B folder does not include them:
+  ``` sh
+  torchrun --nproc_per_node=4 generate.py --task i2v-1.3B --size 480*832 --ckpt_dir lingbot-world-v2-1.3b-causal-fast --assets_dir lingbot-world-v2-14b-causal-fast --image examples/03/image.jpg --action_path examples/03 --dit_fsdp --t5_fsdp --ulysses_size 4 --frame_num 361 --local_attn_size 18 --sink_size 6 --prompt "A serene lakeside scene with a lone tree standing in calm water, surrounded by distant snow-capped mountains under a bright blue sky with drifting white clouds — gentle ripples reflect the tree and sky, creating a tranquil, meditative atmosphere."
+  ```
+
+- `causal_pretrain` — 480P, multi-GPU:
   ``` sh
   torchrun --nproc_per_node=8 generate.py --task i2v-A14B --infer_mode causal_pretrain --size 480*832 --ckpt_dir lingbot-world-v2-14b-causal-pretrain --image examples/03/image.jpg --action_path examples/03 --dit_fsdp --t5_fsdp --ulysses_size 8 --frame_num 81 --prompt "A serene lakeside scene with a lone tree standing in calm water, surrounded by distant snow-capped mountains under a bright blue sky with drifting white clouds — gentle ripples reflect the tree and sky, creating a tranquil, meditative atmosphere."
-  ``` -->
+  ```
 
-You can also use the provided `run_fast.sh` script:
+You can also use the provided `run_fast.sh` script. The task and GPU count are inferred from the checkpoint directory name (`*1.3b*` / `*1p3b*` → 1.3B on 4 GPUs, otherwise 14B on 8 GPUs):
 ``` sh
-bash run_fast.sh <weights_dir> <frame_num>
+bash run_fast.sh <weights_dir> <frame_num> [assets_dir]
 # e.g. bash run_fast.sh lingbot-world-v2-14b-causal-fast 361
+# e.g. bash run_fast.sh lingbot-world-v2-1.3b-causal-fast 361 lingbot-world-v2-14b-causal-fast
 ```
 
 ### Deployment

@@ -3,10 +3,12 @@ import os
 
 os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 
+from .wan_i2v_1_3B import i2v_1_3B
 from .wan_i2v_A14B import i2v_A14B
 
 WAN_CONFIGS = {
     'i2v-A14B': i2v_A14B,
+    'i2v-1.3B': i2v_1_3B,
 }
 
 SIZE_CONFIGS = {
@@ -32,5 +34,6 @@ MAX_AREA_CONFIGS = {
 }
 
 SUPPORTED_SIZES = {
-    'i2v-A14B': ('720*1280', '1280*720', '480*832', '832*480')
+    'i2v-A14B': ('720*1280', '1280*720', '480*832', '832*480'),
+    'i2v-1.3B': ('720*1280', '1280*720', '480*832', '832*480'),
 }

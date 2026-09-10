@@ -1,5 +1,6 @@
 import gc
 import hashlib
+import json
 import logging
 import math
 import os
@@ -35,6 +36,122 @@ from .utils.cam_utils import (
 from einops import rearrange
 
 
+def _resolve_asset_path(filename, checkpoint_dir, assets_dir=None):
+    """Resolve T5 / VAE / tokenizer paths, falling back to ``assets_dir``.
+
+    The 1.3B Hugging Face upload currently ships only DiT weights; T5, VAE,
+    and the tokenizer can be reused from the 14B release via ``--assets_dir``.
+    """
+    candidates = [os.path.join(checkpoint_dir, filename)]
+    if assets_dir:
+        candidates.append(os.path.join(assets_dir, filename))
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+    searched = ", ".join(candidates)
+    raise FileNotFoundError(
+        f"Required asset {filename!r} not found. Looked in: {searched}. "
+        "Pass --assets_dir pointing at a 14B (or Wan) checkpoint that contains "
+        "models_t5_umt5-xxl-enc-bf16.pth, Wan2.1_VAE.pth, and google/umt5-xxl."
+    )
+
+
+def _resolve_dit_dir(checkpoint_dir, subfolder):
+    """Prefer ``checkpoint_dir/subfolder`` when it exists, else the root.
+
+    14B causal-fast stores DiT weights under ``transformers/``. The 1.3B
+    causal-fast upload currently places shards at the repository root.
+    """
+    if subfolder:
+        candidate = os.path.join(checkpoint_dir, subfolder)
+        if os.path.isdir(candidate):
+            return candidate
+    return checkpoint_dir
+
+
+def _load_safetensors_state_dict(dit_dir):
+    """Load a (possibly sharded) safetensors dump from ``dit_dir``."""
+    from safetensors.torch import load_file
+
+    for index_name in (
+            "model.safetensors.index.json",
+            "diffusion_pytorch_model.safetensors.index.json",
+    ):
+        index_path = os.path.join(dit_dir, index_name)
+        if not os.path.isfile(index_path):
+            continue
+        with open(index_path) as f:
+            index = json.load(f)
+        state = {}
+        for shard in sorted(set(index["weight_map"].values())):
+            state.update(load_file(os.path.join(dit_dir, shard)))
+        return state
+
+    for single_name in (
+            "model.safetensors",
+            "diffusion_pytorch_model.safetensors",
+    ):
+        single_path = os.path.join(dit_dir, single_name)
+        if os.path.isfile(single_path):
+            return load_file(single_path)
+
+    raise FileNotFoundError(
+        f"No safetensors weights found in {dit_dir}. Expected a sharded "
+        "index (model.safetensors.index.json) or a single model.safetensors."
+    )
+
+
+def _dit_kwargs_from_config(config, extra=None):
+    kwargs = dict(
+        model_type="i2v",
+        patch_size=tuple(config.patch_size),
+        text_len=config.text_len,
+        in_dim=getattr(config, "in_dim", 36),
+        dim=config.dim,
+        ffn_dim=config.ffn_dim,
+        freq_dim=config.freq_dim,
+        text_dim=getattr(config, "text_dim", 4096),
+        out_dim=getattr(config, "out_dim", 16),
+        num_heads=config.num_heads,
+        num_layers=config.num_layers,
+        qk_norm=config.qk_norm,
+        cross_attn_norm=config.cross_attn_norm,
+        eps=config.eps,
+    )
+    if extra:
+        kwargs.update(extra)
+    return kwargs
+
+
+def load_dit_model(model_cls, checkpoint_dir, subfolder, config, torch_dtype,
+                   extra=None):
+    """Load a DiT from ``transformers/`` or the checkpoint root.
+
+    Uses ``from_pretrained`` when ``config.json`` is present. Otherwise builds
+    the module from the task EasyDict and loads sharded safetensors — the
+    layout of the current 1.3B Hugging Face upload.
+    """
+    extra = extra or {}
+    dit_dir = _resolve_dit_dir(checkpoint_dir, subfolder)
+    logging.info(f"Loading {model_cls.__name__} from {dit_dir}")
+    if os.path.isfile(os.path.join(dit_dir, "config.json")):
+        return model_cls.from_pretrained(
+            dit_dir, torch_dtype=torch_dtype, **extra)
+
+    logging.info(
+        f"config.json not found in {dit_dir}; building {model_cls.__name__} "
+        "from the task config and loading safetensors weights."
+    )
+    model = model_cls(**_dit_kwargs_from_config(config, extra))
+    state = _load_safetensors_state_dict(dit_dir)
+    missing, unexpected = model.load_state_dict(state, strict=False)
+    if missing:
+        logging.warning(f"Missing keys when loading DiT: {missing}")
+    if unexpected:
+        logging.warning(f"Unexpected keys when loading DiT: {unexpected}")
+    return model.to(dtype=torch_dtype)
+
+
 class WanI2VCausal:
 
     def __init__(
@@ -53,6 +170,7 @@ class WanI2VCausal:
         local_attn_size=-1,
         sink_size=0,
         infer_mode="causal_fast",
+        assets_dir=None,
     ):
         r"""
         Initializes the image-to-video generation model components.
@@ -85,6 +203,10 @@ class WanI2VCausal:
             convert_model_dtype (`bool`, *optional*, defaults to False):
                 Convert DiT model parameters dtype to 'config.param_dtype'.
                 Only works without FSDP.
+            assets_dir (`str`, *optional*):
+                Directory that holds shared T5 / VAE / tokenizer files when
+                they are not packaged with ``checkpoint_dir`` (the 1.3B DiT
+                upload). Typically the 14B causal-fast checkpoint directory.
         """
         assert infer_mode in ("causal_fast", "causal_pretrain"), \
             f"Unsupported infer_mode: {infer_mode}"
@@ -111,31 +233,39 @@ class WanI2VCausal:
             text_len=config.text_len,
             dtype=config.t5_dtype,
             device=torch.device('cpu'),
-            checkpoint_path=os.path.join(checkpoint_dir, config.t5_checkpoint),
-            tokenizer_path=os.path.join(checkpoint_dir, config.t5_tokenizer),
+            checkpoint_path=_resolve_asset_path(
+                config.t5_checkpoint, checkpoint_dir, assets_dir),
+            tokenizer_path=_resolve_asset_path(
+                config.t5_tokenizer, checkpoint_dir, assets_dir),
             shard_fn=shard_fn if t5_fsdp else None,
         )
 
         self.vae_stride = config.vae_stride
         self.patch_size = config.patch_size
         self.vae = Wan2_1_VAE(
-            vae_pth=os.path.join(checkpoint_dir, config.vae_checkpoint),
+            vae_pth=_resolve_asset_path(
+                config.vae_checkpoint, checkpoint_dir, assets_dir),
             device=self.device)
 
         if self.infer_mode == "causal_fast":
-            logging.info(f"Creating WanModelFast from {checkpoint_dir}")
-            self.model = WanModelFast.from_pretrained(
+            self.model = load_dit_model(
+                WanModelFast,
                 checkpoint_dir,
-                subfolder=config.fast_checkpoint,
-                torch_dtype=torch.bfloat16,
-                local_attn_size=self.local_attn_size,
-                sink_size=self.sink_size)
+                config.fast_checkpoint,
+                config,
+                torch.bfloat16,
+                extra=dict(
+                    local_attn_size=self.local_attn_size,
+                    sink_size=self.sink_size),
+            )
         else:
-            logging.info(f"Creating WanModelCausal from {checkpoint_dir}")
-            self.model = WanModelCausal.from_pretrained(
+            self.model = load_dit_model(
+                WanModelCausal,
                 checkpoint_dir,
-                subfolder=config.causal_checkpoint,
-                torch_dtype=torch.bfloat16)
+                config.causal_checkpoint,
+                config,
+                torch.bfloat16,
+            )
 
         self.model = self._configure_model(
             model=self.model,
