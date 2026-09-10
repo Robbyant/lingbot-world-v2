@@ -7,3 +7,4 @@ logs/
 *.json
 *.pth
 *.zip
+.codex/*
