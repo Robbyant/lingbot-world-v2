@@ -1,10 +1,11 @@
 __pycache__/
 .DS_Store
 .vscode*
+.claude/*
+.codex/*
 output/
 logs/
 *.mp4
 *.json
 *.pth
 *.zip
-.codex/*
