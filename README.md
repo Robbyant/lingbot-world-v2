@@ -130,7 +130,7 @@ We provide `generate.py` for causal inference with KV caching, which processes v
   torchrun --nproc_per_node=8 generate.py --task i2v-A14B --size 480*832 --ckpt_dir lingbot-world-v2-14b-causal-fast --image examples/03/image.jpg --action_path examples/03 --dit_fsdp --t5_fsdp --ulysses_size 8 --frame_num 361 --local_attn_size 18 --sink_size 6 --prompt "A serene lakeside scene with a lone tree standing in calm water, surrounded by distant snow-capped mountains under a bright blue sky with drifting white clouds — gentle ripples reflect the tree and sky, creating a tranquil, meditative atmosphere."
   ```
 
-- `causal_fast` 1.3B — 480P, 4 GPUs (`ulysses_size` must divide 12 heads; 4 matches the 1.3B causal-ODE CP=4 setting). Reuse T5/VAE from the 14B checkpoint if the 1.3B folder does not include them:
+- `causal_fast` 1.3B — 480P, 4 GPUs (`ulysses_size` must divide 12 heads). Reuse T5/VAE from the 14B checkpoint if the 1.3B folder does not include them:
   ``` sh
   torchrun --nproc_per_node=4 generate.py --task i2v-1.3B --size 480*832 --ckpt_dir lingbot-world-v2-1.3b-causal-fast --assets_dir lingbot-world-v2-14b-causal-fast --image examples/03/image.jpg --action_path examples/03 --dit_fsdp --t5_fsdp --ulysses_size 4 --frame_num 361 --local_attn_size 18 --sink_size 6 --prompt "A serene lakeside scene with a lone tree standing in calm water, surrounded by distant snow-capped mountains under a bright blue sky with drifting white clouds — gentle ripples reflect the tree and sky, creating a tranquil, meditative atmosphere."
   ```
