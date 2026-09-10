@@ -15,7 +15,7 @@ Robbyant Team
 [![Model](https://img.shields.io/static/v1?label=%F0%9F%A4%97%20Model&message=HuggingFace&color=yellow)](https://huggingface.co/collections/robbyant/lingbot-world-v2)
 [![Model](https://img.shields.io/static/v1?label=%F0%9F%A4%96%20Model&message=ModelScope&color=purple)](https://modelscope.cn/collections/Robbyant/LingBot-World-V2)
 [![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-green)](LICENSE.txt)
-
+<video src="https://github.com/user-attachments/assets/70bf5b40-df07-4266-b7f9-d3a85d420309" width="100%" controls></video>
 
 </div>
 
@@ -37,15 +37,29 @@ The real-time version of LingBot-World-Infinity is available on two platforms. W
 
 ## 🎬 Demo Gallery
 
+### LingBot-World-V2-14B-Causal-Pretrain
+
 <div align="center">
-  <video src="https://github.com/user-attachments/assets/ab2a81a8-56f7-4328-a5cc-80477151c61c" width="100%" poster=""> </video>
-  <video src="https://github.com/user-attachments/assets/2a1a4864-7809-4bff-ab08-32bd30099581" width="100%" poster=""> </video>
-  <video src="https://github.com/user-attachments/assets/f1059674-a7e7-45b1-8738-627d811d7bee" width="100%" poster=""> </video>
-  <video src="https://github.com/user-attachments/assets/538097aa-6c02-48e1-9802-563416f6191a" width="100%" poster=""> </video>
-  <video src="https://github.com/user-attachments/assets/e7e0749a-9ca9-4502-a846-661c41b48096" width="100%" poster=""> </video>
-  <video src="https://github.com/user-attachments/assets/09970b6c-990d-4e40-bd8b-82755400fa9d" width="100%" poster=""> </video>
+  <video src="https://github.com/user-attachments/assets/f6b65106-e791-4da5-836e-b2214e2dc721" width="100%" controls></video>
+  <video src="https://github.com/user-attachments/assets/d06f61a3-6c20-4718-995f-e9223e9217d5" width="100%" controls></video>
 </div>
 
+### LingBot-World-V2-14B-Causal-Fast
+
+<div align="center">
+  <video src="https://github.com/user-attachments/assets/f1059674-a7e7-45b1-8738-627d811d7bee" width="100%" controls></video>
+  <video src="https://github.com/user-attachments/assets/538097aa-6c02-48e1-9802-563416f6191a" width="100%" controls></video>
+  <video src="https://github.com/user-attachments/assets/ab2a81a8-56f7-4328-a5cc-80477151c61c" width="100%" controls></video>
+  <video src="https://github.com/user-attachments/assets/2a1a4864-7809-4bff-ab08-32bd30099581" width="100%" controls></video>
+  <video src="https://github.com/user-attachments/assets/e7e0749a-9ca9-4502-a846-661c41b48096" width="100%" controls></video>
+  <video src="https://github.com/user-attachments/assets/09970b6c-990d-4e40-bd8b-82755400fa9d" width="100%" controls></video>
+</div>
+
+### LingBot-World-V2-1.3B-Causal-Fast
+
+<div align="center">
+  <video src="https://github.com/user-attachments/assets/ad7929f0-58e1-4956-91db-f7a5e14e3d81" width="100%" controls></video>
+</div>
 
 <p align="center"><i>✨ For more high-fidelity and compelling demos, please visit our <a href="https://technology.robbyant.com/lingbot-world-v2">Project Page</a>.</i></p>
 
