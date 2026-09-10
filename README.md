@@ -50,13 +50,14 @@ The real-time version of LingBot-World-Infinity is available on two platforms. W
 <p align="center"><i>✨ For more high-fidelity and compelling demos, please visit our <a href="https://technology.robbyant.com/lingbot-world-v2">Project Page</a>.</i></p>
 
 ## 🔥 News
+- Sep. 10, 2026: 🎉 We release the remaining full model variants: the 14B model’s causal-pretrained and bidirectional variants, and the 1.3B model’s causal-fast variant.
 - Jul. 9, 2026: 🎉 We release the technical report, inference code, and models for LingBot-World-Infinity.
 
 ## 📋 TODO
 - [x] Release the causal-fast inference code and model of the 14B model
-- [ ] Release the causal-pretrained model of the 14B model
-- [ ] Release the bidirectional model of the 14B model
-- [ ] Release the causal-fast model of the 1.3B model
+- [x] Release the causal-pretrained model of the 14B model
+- [x] Release the bidirectional model of the 14B model
+- [x] Release the causal-fast model of the 1.3B model
 
 ## ⚙️ Quick Start
 This codebase is built upon [Wan2.2](https://github.com/Wan-Video/Wan2.2). Please refer to their documentation for installation instructions.
