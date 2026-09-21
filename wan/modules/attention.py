@@ -50,6 +50,13 @@ def flash_attention(
     """
     half_dtypes = (torch.float16, torch.bfloat16)
     assert dtype in half_dtypes
+    if q.device.type == 'xpu' or not (FLASH_ATTN_2_AVAILABLE or FLASH_ATTN_3_AVAILABLE):
+        return _attention_sdpa_varlen(
+            q=q, k=k, v=v, q_lens=q_lens, k_lens=k_lens,
+            dropout_p=dropout_p, softmax_scale=softmax_scale,
+            q_scale=q_scale, causal=causal, window_size=window_size,
+            dtype=dtype,
+        )
     assert q.device.type == 'cuda' and q.size(-1) <= 256
 
     # params
@@ -129,6 +136,54 @@ def flash_attention(
     return x.type(out_dtype)
 
 
+def _attention_sdpa_varlen(q, k, v, q_lens=None, k_lens=None, dropout_p=0.,
+                           softmax_scale=None, q_scale=None, causal=False,
+                           window_size=(-1, -1), dtype=torch.bfloat16):
+    """SDPA fallback for the flash_attention varlen interface (XPU / no-flash builds).
+    q, k, v: [B, L, N, C]; q_lens/k_lens: optional per-batch valid lengths."""
+    import torch.nn.functional as F
+    if q_scale is not None:
+        q = q * q_scale
+    out_dtype = q.dtype
+    half_dtypes = (torch.float16, torch.bfloat16)
+    if q.dtype not in half_dtypes:
+        q = q.to(dtype)
+    if k.dtype not in half_dtypes:
+        k = k.to(dtype)
+    if v.dtype not in half_dtypes:
+        v = v.to(dtype)
+    q = q.to(v.dtype)
+    k = k.to(v.dtype)
+    if q_lens is not None:
+        assert q.size(0) == 1, "SDPA varlen fallback supports q_lens only for batch=1"
+        q = q[:, :q_lens[0]]
+    lq = q.size(1)
+    lk = k.size(1)
+    left, right = window_size
+    attn_mask = None
+    if k_lens is not None or left >= 0 or right >= 0 or causal:
+        key_positions = torch.arange(lk, device=q.device)
+        query_positions = torch.arange(lq, device=q.device) + max(lk - lq, 0)
+        attn_mask = torch.ones((lq, lk), device=q.device, dtype=torch.bool)
+        if k_lens is not None:
+            valid_keys = key_positions[None, :] < k_lens.to(q.device)[:, None]
+            attn_mask = attn_mask.unsqueeze(0) & valid_keys[:, None, :]
+        else:
+            attn_mask = attn_mask.unsqueeze(0)
+        if causal:
+            attn_mask = attn_mask & (key_positions[None, None, :] <= query_positions[None, :, None])
+        if left >= 0:
+            attn_mask = attn_mask & (key_positions[None, None, :] >= query_positions[None, :, None] - left)
+        if right >= 0:
+            attn_mask = attn_mask & (key_positions[None, None, :] <= query_positions[None, :, None] + right)
+        attn_mask = attn_mask[:, None, :, :]
+    out = F.scaled_dot_product_attention(
+        q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2),
+        attn_mask=attn_mask, is_causal=False, dropout_p=dropout_p,
+        scale=softmax_scale)
+    return out.transpose(1, 2).contiguous().to(out_dtype)
+
+
 def attention(
     q,
     k,
@@ -161,18 +216,11 @@ def attention(
             version=fa_version,
         )
     else:
-        if q_lens is not None or k_lens is not None:
-            warnings.warn(
-                'Padding mask is disabled when using scaled_dot_product_attention. It can have a significant impact on performance.'
-            )
-        attn_mask = None
-
-        q = q.transpose(1, 2).to(dtype)
-        k = k.transpose(1, 2).to(dtype)
-        v = v.transpose(1, 2).to(dtype)
-
-        out = torch.nn.functional.scaled_dot_product_attention(
-            q, k, v, attn_mask=attn_mask, is_causal=causal, dropout_p=dropout_p)
-
-        out = out.transpose(1, 2).contiguous()
-        return out
+        q = q.to(dtype)
+        k = k.to(dtype)
+        v = v.to(dtype)
+        return _attention_sdpa_varlen(
+            q=q, k=k, v=v, q_lens=q_lens, k_lens=k_lens,
+            dropout_p=dropout_p, softmax_scale=softmax_scale,
+            q_scale=q_scale, causal=causal, window_size=window_size,
+            dtype=dtype)

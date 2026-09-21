@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from ..amp_compat import get_accelerator
 from .tokenizers import HuggingfaceTokenizer
 
 __all__ = [
@@ -473,14 +474,16 @@ class T5EncoderModel:
         self,
         text_len,
         dtype=torch.bfloat16,
-        device=torch.cuda.current_device(),
+        device=None,  # resolved in __init__; 'cuda.current_device()' as a default crashes import on non-CUDA builds
         checkpoint_path=None,
         tokenizer_path=None,
         shard_fn=None,
     ):
         self.text_len = text_len
         self.dtype = dtype
-        self.device = device
+        if device is None:
+            device = torch.device(get_accelerator(allow_cpu=True))
+        self.device = torch.device(device)
         self.checkpoint_path = checkpoint_path
         self.tokenizer_path = tokenizer_path
 
@@ -491,7 +494,10 @@ class T5EncoderModel:
             dtype=dtype,
             device=device).eval().requires_grad_(False)
         logging.info(f'loading {checkpoint_path}')
-        model.load_state_dict(torch.load(checkpoint_path, map_location='cpu'))
+        _sd = torch.load(checkpoint_path, map_location='cpu', weights_only=False, mmap=True)
+        model.load_state_dict(_sd)
+        del _sd
+        import gc; gc.collect()
         self.model = model
         if shard_fn is not None:
             self.model = shard_fn(self.model, sync_module_states=False)

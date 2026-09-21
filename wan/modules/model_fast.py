@@ -17,6 +17,7 @@ from wan.modules.model import (
 )
 
 from .attention import flash_attention
+from ..amp_compat import ac
 
 
 def causal_rope_apply(x, grid_sizes, freqs, start_frame=0):
@@ -284,7 +285,7 @@ class CausalWanAttentionBlock(nn.Module):
             freqs(Tensor): Rope freqs, shape [1024, C / num_heads / 2]
         """
         assert e.dtype == torch.float32
-        with torch.amp.autocast('cuda', dtype=torch.float32):
+        with ac('cuda', dtype=torch.float32):
             e = (self.modulation.unsqueeze(0) + e).chunk(6, dim=2)
         assert e[0].dtype == torch.float32
         # self-attention
@@ -292,7 +293,7 @@ class CausalWanAttentionBlock(nn.Module):
             self.norm1(x).float() * (1 + e[1].squeeze(2)) + e[0].squeeze(2),
             seq_lens, grid_sizes, freqs, kv_cache, current_start, max_attention_size,
             frame_seqlen=frame_seqlen, seq_lens_int=seq_lens_int)
-        with torch.amp.autocast('cuda', dtype=torch.float32):
+        with ac('cuda', dtype=torch.float32):
             x = x + y * e[2].squeeze(2)
 
         # cam injection (only if dit_cond_dict is provided and contains c2ws_plucker_emb)
@@ -312,7 +313,7 @@ class CausalWanAttentionBlock(nn.Module):
                                     cross_attn_first_call=cross_attn_first_call)
             y = self.ffn(
                 self.norm2(x).float() * (1 + e[4].squeeze(2)) + e[3].squeeze(2))
-            with torch.amp.autocast('cuda', dtype=torch.float32):
+            with ac('cuda', dtype=torch.float32):
                 x = x + y * e[5].squeeze(2)
             return x
 
@@ -345,7 +346,7 @@ class CausalHead(nn.Module):
             e(Tensor): Shape [B, L1, C]
         """
         assert e.dtype == torch.float32
-        with torch.amp.autocast('cuda', dtype=torch.float32):
+        with ac('cuda', dtype=torch.float32):
             e = (self.modulation.unsqueeze(0) + e.unsqueeze(2)).chunk(2, dim=2)
             x = (
                 self.head(
@@ -559,7 +560,7 @@ class WanModelFast(ModelMixin, ConfigMixin):
         # time embeddings
         if t.dim() == 1:
             t = t.expand(t.size(0), seq_lens)
-        with torch.amp.autocast('cuda', dtype=torch.float32):
+        with ac('cuda', dtype=torch.float32):
             bt = t.size(0)
             t = t.flatten()
             e = self.time_embedding(
