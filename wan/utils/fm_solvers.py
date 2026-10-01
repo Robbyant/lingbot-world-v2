@@ -398,7 +398,9 @@ class FlowDPMSolverMultistepScheduler(SchedulerMixin, ConfigMixin):
         elif self.config.algorithm_type in ["dpmsolver", "sde-dpmsolver"]:
             if self.config.prediction_type == "flow_prediction":
                 sigma_t = self.sigmas[self.step_index]
-                epsilon = sample - (1 - sigma_t) * model_output
+                # x_t = (1 - sigma_t) * x_0 + sigma_t * epsilon,
+                # while flow velocity is epsilon - x_0.
+                epsilon = sample + (1 - sigma_t) * model_output
             else:
                 raise ValueError(
                     f"prediction_type given as {self.config.prediction_type} must be one of `epsilon`, `sample`,"
