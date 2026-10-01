@@ -36,6 +36,25 @@ def rope_params(max_seq_len, dim, theta=10000):
     return freqs
 
 
+def temporal_rope_slice(freqs, start_frame, num_frames):
+    """Use cached phases, or evaluate absolute positions beyond the table.
+
+    The phase at position one contains the angular frequency of each rotary
+    pair. Reusing it preserves the existing frequency schedule without growing
+    a table with the duration of an interactive session.
+    """
+    if start_frame + num_frames <= freqs.shape[0]:
+        return freqs[start_frame:start_frame + num_frames]
+    if freqs.shape[0] < 2:
+        raise ValueError("At least two cached positions are needed to extrapolate RoPE.")
+    positions = torch.arange(
+        start_frame, start_frame + num_frames,
+        device=freqs.device, dtype=freqs.real.dtype,
+    )
+    phases = torch.outer(positions, torch.angle(freqs[1]))
+    return torch.polar(torch.ones_like(phases), phases)
+
+
 @torch.amp.autocast('cuda', enabled=False)
 def rope_apply(x, grid_sizes, freqs):
     n, c = x.size(2), x.size(3) // 2

@@ -13,7 +13,8 @@ from wan.modules.model import (
     WanLayerNorm,
     WanSelfAttention,
     rope_params,
-    sinusoidal_embedding_1d
+    sinusoidal_embedding_1d,
+    temporal_rope_slice,
 )
 
 from .attention import flash_attention
@@ -35,7 +36,7 @@ def causal_rope_apply(x, grid_sizes, freqs, start_frame=0):
         x_i = torch.view_as_complex(x[i, :seq_len].to(torch.float64).reshape(
             seq_len, n, -1, 2))
         freqs_i = torch.cat([
-            freqs[0][start_frame:start_frame + f].view(f, 1, 1, -1).expand(f, h, w, -1),
+            temporal_rope_slice(freqs[0], start_frame, f).view(f, 1, 1, -1).expand(f, h, w, -1),
             freqs[1][:h].view(1, h, 1, -1).expand(f, h, w, -1),
             freqs[2][:w].view(1, 1, w, -1).expand(f, h, w, -1)
         ],
